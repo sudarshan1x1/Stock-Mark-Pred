@@ -6,9 +6,14 @@ import yfinance as yf
 import matplotlib.pyplot as plt1
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler 
-
-# *********** Ignore Warnings ***********
+from flask import Flask, jsonify, request, make_response
+from flask_cors import CORS
 import warnings
+
+app = Flask(__name__)
+CORS(app)
+# *********** Ignore Warnings ***********
+
 warnings.filterwarnings('ignore')
 
 # *********** Importing Data ***********
@@ -18,7 +23,7 @@ def get_data(ticker):
     data = yf.download(ticker, start=start, end=end)
     df = pd.DataFrame(data=data)
     df.to_csv(''+ticker+'.csv')
-    return
+    return df
 
 # *********** Linear Regression Algorithm ***********
 def linear_reg_algo(df):
@@ -75,34 +80,40 @@ def linear_reg_algo(df):
     forecast_set = forecast_set*(1.02)
     mean = forecast_set.mean()
     lr_pred = forecast_set[0,0]
-    print()
-    print( "Tomorrow's "+ticker+" Closing Price Prediction by Linear Regression: ",lr_pred)
     return df, lr_pred, forecast_set, mean
 
 
-def signal(today_stock, mean):
+def signal(today_stock, mean, default="NO_ORDER"):
+    order_type = default
     if today_stock['Close'] < mean:
         order_type = "BUY"
         print()
     else:
         order_type = "SELL"
     
-    return order_type
+    return {'order_type': order_type}
 
 
+@app.route('/predict', methods=['GET'])
+def predict_stock():
+    ticker = request.args.get['ticker']
+    if not ticker:
+        return jsonify({'error': 'Missing ticker parameter'}), 400
+    
+    get_data(ticker)
+    df = pd.read_csv(''+ticker+'.csv')
+    today_stock = df.iloc[-1]
+    df, lr_pred, forecast_set, mean = linear_reg_algo(df)
+    decision = signal(today_stock, mean)
+    result = {'ticker': ticker,
+              'today_stock': today_stock.to_dict(),
+              'lr_pred' : lr_pred,
+              'decision': decision,
+              'forecast_set': forecast_set.tolist()}
+    
+    return jsonify(result)
 
-ticker = input("Enter the stock ticker: ").upper()
 
-get_data(ticker)
-df = pd.read_csv(''+ticker+'.csv')
-today_stock = df.iloc[-1]
-print("Today's "+ticker+" Stock Data : ", today_stock)
-print("**********************************************")
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
 
-df, lr_pred, forecast_set, mean = linear_reg_algo(df)
-print("**********************************************")
-decision = signal(today_stock, mean)
-print("According to the Model the Signal is to ",decision," the stock.")
-
-print(" Forecasted Stock Price for Next 10 Days:")
-print(forecast_set)
