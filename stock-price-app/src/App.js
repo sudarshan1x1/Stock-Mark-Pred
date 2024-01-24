@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import { predictStock } from './api';
+import { predictStock } from './api'
+import './App.css';
 
 
 function App() {
@@ -7,6 +8,7 @@ function App() {
   const [prediction, setPrediction] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [imageKey, setImageKey] = useState(Date.now());
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -19,6 +21,7 @@ function App() {
     try { 
       const data = await predictStock(ticker);
       setPrediction(data);
+      setImageKey(Date.now());
     } catch (error) {
       setError('Error fetching data');
       console.error('Error fetching data:', error);
@@ -46,14 +49,46 @@ function App() {
       {prediction && (
         <div>
           <h2>Today's {prediction.ticker} Stock Data:</h2>
-          <p>{JSON.stringify(prediction.today_stock)}</p>
+          <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Object.entries(prediction.today_stock).map(([key, value]) => (
+          <tr key={key}>
+            <td>{key}</td>
+            <td>{value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
           <h2>Tomorrow's Closing Price Prediction:</h2>
           <p>{prediction.lr_pred}</p>
           <h2>Forecasted Stock Price for Next 10 Days:</h2>
-          <p>{JSON.stringify(prediction.forecast_set)}</p>
+          <table>
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Forecasted Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        {prediction.forecast_set.map((forecast, index) => (
+          <tr key={index}>
+            <td>Day {index + 1}</td>
+            <td>{forecast}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
           <h2>Model Decision:</h2>
-          <p>{JSON.stringify(prediction.decision)}</p>
-          <img src={`http://localhost:5000/get_image`} alt="" />
+          <p>{prediction.decision.order_type}</p>
+          <div className="image-container">
+            <img src={`http://localhost:5000/get_image?${imageKey}`} alt="Stock Prediction" />
+          </div>
         </div>
       )}
     </div>
