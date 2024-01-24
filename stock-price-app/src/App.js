@@ -52,7 +52,8 @@ function App() {
           <h2>Forecasted Stock Price for Next 10 Days:</h2>
           <p>{JSON.stringify(prediction.forecast_set)}</p>
           <h2>Model Decision:</h2>
-          <p>{prediction.decision}</p>
+          <p>{JSON.stringify(prediction.decision)}</p>
+          <img src={`http://localhost:5000/get_image`} alt="" />
         </div>
       )}
     </div>

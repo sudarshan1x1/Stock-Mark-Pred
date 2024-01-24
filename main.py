@@ -6,7 +6,7 @@ import yfinance as yf
 import matplotlib.pyplot as plt1
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler 
-from flask import Flask, jsonify, request, make_response
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import warnings
 
@@ -70,8 +70,6 @@ def linear_reg_algo(df):
     plt1.ylabel('Stock Price')
     plt1.legend(loc='upper left')
     plt1.savefig('linear_reg_algo.png')
-    plt1.show()
-    plt1.close(fig)
 
 
 
@@ -96,22 +94,30 @@ def signal(today_stock, mean, default="NO_ORDER"):
 
 @app.route('/predict', methods=['GET'])
 def predict_stock():
-    ticker = request.args.get['ticker']
+    ticker = request.args.get('ticker')
     if not ticker:
         return jsonify({'error': 'Missing ticker parameter'}), 400
     
     get_data(ticker)
     df = pd.read_csv(''+ticker+'.csv')
     today_stock = df.iloc[-1]
+    print('Line 106')
     df, lr_pred, forecast_set, mean = linear_reg_algo(df)
+    print('Line 108')
     decision = signal(today_stock, mean)
+    print('Line 110')
     result = {'ticker': ticker,
               'today_stock': today_stock.to_dict(),
               'lr_pred' : lr_pred,
               'decision': decision,
-              'forecast_set': forecast_set.tolist()}
-    
+              'forecast_set': forecast_set.tolist(),
+              }
+    print('Line 116')
     return jsonify(result)
+
+@app.route('/get_image')
+def get_image():
+    return send_file('linear_reg_algo.png', mimetype='image/png')
 
 
 if __name__ == '__main__':
