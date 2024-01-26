@@ -1,47 +1,73 @@
 # *********** Importing Libraries ***********
 import pandas as pd 
 import numpy as np
-import datetime as dt 
+from datetime import datetime
 import yfinance as yf
 import matplotlib.pyplot as plt1
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_cors import CORS
 import warnings
+import os
 
-app = Flask(__name__)
-CORS(app)
 # *********** Ignore Warnings ***********
 
 warnings.filterwarnings('ignore')
 
+# *********** Flask App ***********
+
+# Flask web server instance is created and the static_folder is set to build, so that the react app build files can be served from the flask server.
+app = Flask(__name__, static_folder='build') 
+CORS(app) # Cross Origin Resource Sharing
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path): # This function checks if the requested path exists in static folder and serves the react app build files 
+    if path != "" and os.path.exists(app.static_folder + '/' + path):
+        print('Line 19')
+        return send_from_directory(app.static_folder, path)
+    else:
+        print('Line 22')
+        return send_from_directory(app.static_folder, 'index.html')
+
 # *********** Importing Data ***********
 def get_data(ticker):
-    end = dt.datetime.now()
-    start = dt.datetime(end.year-2, end.month, end.day)
+    end = datetime.now()
+    start = datetime(end.year-2, end.month, end.day)
     data = yf.download(ticker, start=start, end=end)
     df = pd.DataFrame(data=data)
-    df.to_csv(''+ticker+'.csv')
+    df.to_csv(''+ticker+'.csv')      
     return df
 
 # *********** Linear Regression Algorithm ***********
 def linear_reg_algo(df):
 
 # the number of days the stock price to be forecasted into the future
+    
     forecast= int(10)
-# Creation of another column that contains the stock price of the next 10 days    
-    df['Close after n days'] = df['Close'].shift(-forecast)
-# Creation of a new dataframe with only the 'Close' and 'Close after 10 days' columns    
-    df_1 = df[['Close', 'Close after n days']]
-# Data Prep for training and testing
-    y = np.array(df_1.iloc[:-forecast,-1])
-    y = np.reshape(y, (-1,1))
 
-    X = np.array(df_1.iloc[:-forecast,0:-1])
-# Forecasting the next 10 days
-    X_forecasted = np.array(df_1.iloc[-forecast:,0:-1])
-# Splitting the data into training and testing data
+# Creation of another column that contains the stock price of the next 10 days    
+
+    df['Close after n days'] = df['Close'].shift(-forecast)
+
+# Creation of a new dataframe with only the 'Close' and 'Close after 10 days' columns    
+
+    df_1 = df[['Close', 'Close after n days']]
+
+# Data Prep for training and testing
+    #contains the 'Close after 10 days' column values except the last 10 days
+    y = np.array(df_1.iloc[:-forecast,-1]) 
+    # reshaping to a 2-D array
+    y = np.reshape(y, (-1,1)) 
+    #contains all columns except the 'Close after 10 days' column
+    X = np.array(df_1.iloc[:-forecast,0:-1]) 
+
+# #contains last 10 days rows of all columns except the 'Close after 10 days' column
+
+    X_forecasted = np.array(df_1.iloc[-forecast:,0:-1]) 
+
+# Splitting the data into training and testing data (80% and 20% respectively)
     X_train = X[0:int(0.8*len(df)),:]
     X_test = X[int(0.8*len(df)):,:]
     y_train = y[0:int(0.8*len(df)),:]
@@ -91,34 +117,40 @@ def signal(today_stock, mean, default="NO_ORDER"):
     
     return {'order_type': order_type}
 
-
+# Tells flask  to trigger this function when the /predict endpoint is hit with a GET request.
 @app.route('/predict', methods=['GET'])
+
+# retrieves the ticker parameter from the query string of GET request.  Initiates the signal function to predict the order type.
+
 def predict_stock():
     ticker = request.args.get('ticker')
     if not ticker:
         return jsonify({'error': 'Missing ticker parameter'}), 400
     
+    # Initiates the get_data function to download the stock data and save it as a csv file.
     get_data(ticker)
+    # Reads the csv file and stores it in a pandas dataframe. 
     df = pd.read_csv(''+ticker+'.csv')
     today_stock = df.iloc[-1]
-    print('Line 106')
+    # Initiates the linear_reg_algo function to predict the stock price.
+
     df, lr_pred, forecast_set, mean = linear_reg_algo(df)
-    print('Line 108')
     decision = signal(today_stock, mean)
-    print('Line 110')
+
+    # Returns the predicted stock price and the order type as a JSON response.
     result = {'ticker': ticker,
               'today_stock': today_stock.to_dict(),
               'lr_pred' : lr_pred,
               'decision': decision,
               'forecast_set': forecast_set.tolist(),
               }
-    print('Line 116')
     return jsonify(result)
+
+# Tells flask to trigger this function when the /get_image endpoint is hit with a GET request.
 
 @app.route('/get_image')
 def get_image():
     return send_file('linear_reg_algo.png', mimetype='image/png')
-
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

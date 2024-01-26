@@ -1,6 +1,11 @@
-export async function predictStock(ticker) {
+const API_URL = process.env.NODE_ENV === 'production' 
+    ? process.env.REACT_APP_PROD_API_URL
+    : process.env.REACT_APP_API_URL;
+
+// defining the predictStock function that will be called in the App.js file
+    export async function predictStock(ticker) {
   try {
-    const response = await fetch(`http://localhost:5000/predict?ticker=${ticker}`, { 
+    const response = await fetch(`${API_URL}/predict?ticker=${ticker}`, { 
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
