@@ -14,6 +14,7 @@ import os
 # *********** Ignore Warnings ***********
 
 warnings.filterwarnings('ignore')
+print('hello world')
 
 # *********** Flask App ***********
 
